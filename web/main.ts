@@ -7,7 +7,8 @@ import regularFontUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import example from '../examples/workshop.idef0?raw';
-import { analyze, Idef0Error, needsUnicodeFont, parse, renderPdf, type Diagnostic, type FontFiles, type Model, type Span } from '../src/browser.ts';
+import { analyze, Idef0Error, needsUnicodeFont, parse, renderPdf, type Diagnostic, type FontFiles, type Model } from '../src/browser.ts';
+import { createEditor } from './editor.ts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -15,7 +16,6 @@ const STORAGE_KEY = 'idef0-editor.source';
 /** Pause after typing before the model is recompiled, in ms. */
 const DEBOUNCE = 300;
 
-const source = element<HTMLTextAreaElement>('#source');
 const problems = element<HTMLUListElement>('#problems');
 const preview = element<HTMLElement>('#preview');
 const status = element<HTMLElement>('#status');
@@ -30,9 +30,8 @@ let compiles = 0;
 let renders = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
-source.value = restore() ?? example;
-source.addEventListener('input', () => {
-  store(source.value);
+const editor = createEditor(element('#editor'), restore() ?? example, (text) => {
+  store(text);
   clearTimeout(timer);
   timer = setTimeout(update, DEBOUNCE);
 });
@@ -43,7 +42,7 @@ void update();
 async function update(): Promise<void> {
   const run = ++compiles;
   try {
-    const ast = parse(source.value);
+    const ast = parse(editor.text());
     const { model, warnings } = analyze(ast);
     const font = ast.meta.find((m) => m.key === 'font');
     if (font) {
@@ -86,6 +85,7 @@ function report(diagnostics: readonly Diagnostic[], done?: string): void {
   if (warnings > 0) parts.push(count(warnings, 'warning'));
   status.textContent = parts.join(' · ');
   status.classList.toggle('error', errors > 0);
+  editor.showProblems(diagnostics);
 
   problems.replaceChildren(
     ...diagnostics.map((d) => {
@@ -99,7 +99,7 @@ function report(diagnostics: readonly Diagnostic[], done?: string): void {
       );
       if (d.span) {
         const at = d.span;
-        button.addEventListener('click', () => select(at));
+        button.addEventListener('click', () => editor.select(at));
       } else {
         button.disabled = true;
       }
@@ -109,14 +109,6 @@ function report(diagnostics: readonly Diagnostic[], done?: string): void {
     }),
   );
   problems.hidden = diagnostics.length === 0;
-}
-
-/** Selects a span of the source and scrolls it into view. */
-function select(at: Span): void {
-  source.focus();
-  source.setSelectionRange(at.offset, at.offset + at.length);
-  const lineHeight = parseFloat(getComputedStyle(source).lineHeight) || 20;
-  source.scrollTop = Math.max(0, (at.line - 4) * lineHeight);
 }
 
 /** Draws every page of the PDF, fitted to the preview's width, keeping the scroll position. */

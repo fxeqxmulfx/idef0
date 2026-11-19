@@ -196,12 +196,13 @@ included), 1 when the model has errors or a file cannot be read or written, and 
 ## Web editor
 
 ```sh
-npm run web            # opens the editor at http://localhost:5173
+npm run web            # serves the editor at http://localhost:5173
 ```
 
 The editor shows the model source on the left and the PDF on the right, redrawn as you type,
-with a **Download PDF** button. Problems are listed under the source; click one to jump to it.
-While the source has errors, the last good PDF stays on screen, dimmed.
+with a **Download PDF** button. The source has syntax highlighting, and problems are underlined
+in it and listed under it; click one in the list to jump to it. While the source has errors,
+the last good PDF stays on screen, dimmed. The source is kept in the browser between visits.
 
 For text that Helvetica cannot show (Cyrillic, Greek, …) the editor uses DejaVu Sans, which it
 loads the first time a model needs it. The `font` setting only works on the command line.
