@@ -2,10 +2,12 @@
  * The editor page: model source on the left, the compiled PDF on the right. Everything runs
  * in the browser; the PDF is recompiled shortly after each change.
  */
+import boldFontUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf?url';
+import regularFontUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import example from '../examples/workshop.idef0?raw';
-import { compile, Idef0Error, type Diagnostic, type Model, type Span } from '../src/browser.ts';
+import { analyze, Idef0Error, needsUnicodeFont, parse, renderPdf, type Diagnostic, type FontFiles, type Model, type Span } from '../src/browser.ts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -21,6 +23,9 @@ const download = element<HTMLButtonElement>('#download');
 
 /** The last PDF compiled without errors. */
 let current: { bytes: Uint8Array<ArrayBuffer>; name: string } | undefined;
+/** DejaVu Sans, fetched the first time a model has text that Helvetica cannot show. */
+let unicodeFonts: Promise<FontFiles> | undefined;
+let unicodeFontsLoaded = false;
 let compiles = 0;
 let renders = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -38,7 +43,23 @@ void update();
 async function update(): Promise<void> {
   const run = ++compiles;
   try {
-    const { pdf, model, warnings } = await compile(source.value);
+    const ast = parse(source.value);
+    const { model, warnings } = analyze(ast);
+    const font = ast.meta.find((m) => m.key === 'font');
+    if (font) {
+      warnings.push({
+        severity: 'warning',
+        message: 'the font setting only works on the command line; here the PDF uses Helvetica, or DejaVu Sans if the text has characters Helvetica lacks',
+        span: font.keySpan,
+      });
+    }
+    let fonts: FontFiles | undefined;
+    if (needsUnicodeFont(model)) {
+      if (!unicodeFontsLoaded) status.textContent = 'Loading a font for non-Latin text…';
+      fonts = await loadUnicodeFonts();
+    }
+    if (run !== compiles) return;
+    const { pdf } = await renderPdf(model, { fonts });
     if (run !== compiles) return;
     current = { bytes: pdf, name: fileName(model) };
     download.disabled = false;
@@ -128,6 +149,26 @@ async function show(bytes: Uint8Array<ArrayBuffer>): Promise<void> {
   } finally {
     void task.destroy();
   }
+}
+
+function loadUnicodeFonts(): Promise<FontFiles> {
+  unicodeFonts ??= Promise.all([fetchBytes(regularFontUrl), fetchBytes(boldFontUrl)]).then(
+    ([regular, bold]) => {
+      unicodeFontsLoaded = true;
+      return { regular, bold };
+    },
+    (e: unknown) => {
+      unicodeFonts = undefined; // try again on the next change
+      throw new Error(`could not load the font for non-Latin text: ${e instanceof Error ? e.message : String(e)}`);
+    },
+  );
+  return unicodeFonts;
+}
+
+async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 function save(): void {

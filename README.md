@@ -203,6 +203,9 @@ The editor shows the model source on the left and the PDF on the right, redrawn 
 with a **Download PDF** button. Problems are listed under the source; click one to jump to it.
 While the source has errors, the last good PDF stays on screen, dimmed.
 
+For text that Helvetica cannot show (Cyrillic, Greek, …) the editor uses DejaVu Sans, which it
+loads the first time a model needs it. The `font` setting only works on the command line.
+
 Everything runs in the browser, so `npm run web:build` makes a static site in `web/dist/` that
 any static host can serve. `npm run web:preview` serves that build locally.
 
