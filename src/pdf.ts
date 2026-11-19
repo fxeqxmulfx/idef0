@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { layoutModel, type ArrowHead, type DiagramLayout, type LayoutStyle, DEFAULT_STYLE, type Pt, type Rect, type TextBlock } from './layout.ts';
 import type { Activity, DiagramSpec, Model, PageSize, Status } from './model.ts';
@@ -7,20 +5,28 @@ import { STATUSES } from './model.ts';
 import { wrapGreedy, type Measure } from './text.ts';
 import { strokePieces } from './strokes.ts';
 
-export interface PdfOptions {
+/** A font file: its bytes, or its path (paths work only in Node). */
+export type FontSource = string | Uint8Array | ArrayBuffer;
+
+/** Regular and bold TrueType/OpenType fonts, embedded for all text. */
+export interface FontFiles {
+  regular: FontSource;
+  bold: FontSource;
+}
+
+export interface RenderOptions {
   /** Overrides the model's `page` setting. */
   page?: PageSize;
-  /** TrueType/OpenType font for all text. Overrides the model's `font` setting. */
-  font?: string;
-  /** Bold variant of `font`; found automatically next to it when it follows the usual naming. */
-  boldFont?: string;
-  /** Folder that a relative `font` setting in the model is relative to, usually the model file's. */
-  baseDir?: string;
+  /**
+   * Fonts for all text. Without them the PDF uses the built-in Helvetica, which only covers
+   * Western European text; {@link needsUnicodeFont} tells whether a model needs more.
+   */
+  fonts?: FontFiles;
   style?: Partial<LayoutStyle>;
 }
 
-export interface PdfResult {
-  pdf: Buffer;
+export interface RenderResult {
+  pdf: Uint8Array;
   layouts: DiagramLayout[];
 }
 
@@ -31,17 +37,6 @@ export const PAGE_POINTS: Record<PageSize, [number, number]> = {
   letter: [792, 612],
   tabloid: [1224, 792],
 };
-
-/** Unicode fonts tried when the model has text the built-in Helvetica can't encode. */
-const UNICODE_FONTS: [string, string][] = [
-  ['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'],
-  ['/usr/share/fonts/dejavu/DejaVuSans.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf'],
-  ['/usr/share/fonts/TTF/DejaVuSans.ttf', '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf'],
-  ['/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf', '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf'],
-  ['/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'],
-  ['/System/Library/Fonts/Supplemental/Arial.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf'],
-  ['C:\\Windows\\Fonts\\arial.ttf', 'C:\\Windows\\Fonts\\arialbd.ttf'],
-];
 
 const WIN_ANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
 
@@ -54,8 +49,12 @@ function fitsWinAnsi(text: string): boolean {
   return true;
 }
 
+/** All text the PDF shows. */
 function modelText(model: Model): string {
-  const parts: string[] = Object.values(model.meta).filter((v): v is string => typeof v === 'string');
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(model.meta)) {
+    if (key !== 'font' && typeof value === 'string') parts.push(value);
+  }
   const visit = (a: Activity) => {
     parts.push(a.name, ...a.icoms.map((i) => i.label));
     a.children.forEach(visit);
@@ -64,28 +63,25 @@ function modelText(model: Model): string {
   return parts.join(' ');
 }
 
+/** Whether the model has text the built-in Helvetica cannot show, so it needs a Unicode font. */
+export function needsUnicodeFont(model: Model): boolean {
+  return !fitsWinAnsi(modelText(model));
+}
+
+/** The names the fonts are used under. */
 interface Fonts {
   regular: string;
   bold: string;
-  files?: [string, string];
 }
 
-function resolveFonts(model: Model, options: PdfOptions): Fonts {
-  const custom = options.font ?? (model.meta.font && options.baseDir ? resolve(options.baseDir, model.meta.font) : model.meta.font);
-  if (custom) {
-    if (!existsSync(custom)) throw new Error(`font file not found: ${custom}`);
-    const guess = custom.replace(/(-Regular)?(\.[ot]tf)$/i, '-Bold$2');
-    const bold = options.boldFont ?? (guess !== custom && existsSync(guess) ? guess : custom);
-    return { regular: 'Body', bold: 'BodyBold', files: [custom, bold] };
+function concat(chunks: readonly Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.length;
   }
-  if (fitsWinAnsi(modelText(model))) return { regular: 'Helvetica', bold: 'Helvetica-Bold' };
-  const found = UNICODE_FONTS.find(([r]) => existsSync(r));
-  if (!found) {
-    throw new Error(
-      'the model contains characters the built-in PDF fonts cannot show, and no Unicode font was found; pass one with --font path/to/font.ttf (or `font "path"` in the model)',
-    );
-  }
-  return { regular: 'Body', bold: 'BodyBold', files: [found[0], existsSync(found[1]) ? found[1] : found[0]] };
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -122,10 +118,13 @@ function formFor(page: PageSize): Form {
 // ---------------------------------------------------------------------------------------------
 
 /** Lays out every diagram of the model and renders them as pages of one PDF. */
-export async function renderPdf(model: Model, options: PdfOptions = {}): Promise<PdfResult> {
+export async function renderPdf(model: Model, options: RenderOptions = {}): Promise<RenderResult> {
   const page = options.page ?? model.meta.page;
   const form = formFor(page);
-  const fonts = resolveFonts(model, options);
+  if (!options.fonts && needsUnicodeFont(model)) {
+    throw new Error('the model contains characters the built-in PDF fonts cannot show; pass a Unicode font in `fonts`');
+  }
+  const fonts: Fonts = options.fonts ? { regular: 'Body', bold: 'BodyBold' } : { regular: 'Helvetica', bold: 'Helvetica-Bold' };
   const style: LayoutStyle = { ...DEFAULT_STYLE, ...options.style };
 
   // pdfkit chokes on undefined entries, so only set the author when there is one.
@@ -136,16 +135,16 @@ export async function renderPdf(model: Model, options: PdfOptions = {}): Promise
   };
   if (model.meta.author) info.Author = model.meta.author;
   const doc = new PDFDocument({ autoFirstPage: false, size: [form.width, form.height], margin: 0, info });
-  const chunks: Buffer[] = [];
-  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-  const finished = new Promise<Buffer>((resolve, reject) => {
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
+  const chunks: Uint8Array[] = [];
+  doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+  const finished = new Promise<Uint8Array>((resolve, reject) => {
+    doc.on('end', () => resolve(concat(chunks)));
     doc.on('error', reject);
   });
 
-  if (fonts.files) {
-    doc.registerFont(fonts.regular, fonts.files[0]);
-    doc.registerFont(fonts.bold, fonts.files[1]);
+  if (options.fonts) {
+    doc.registerFont(fonts.regular, options.fonts.regular);
+    doc.registerFont(fonts.bold, options.fonts.bold);
   }
   const measure: Measure = (text, size, bold) => doc.font(bold ? fonts.bold : fonts.regular).fontSize(size).widthOfString(text);
   const r = new Renderer(doc, fonts, measure, style, form, model);

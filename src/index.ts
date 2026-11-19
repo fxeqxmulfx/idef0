@@ -1,23 +1,37 @@
+/**
+ * The library for Node: everything in the browser build, plus fonts found on disk and PDFs
+ * returned as Buffers.
+ */
 import type { DocumentAst } from './ast.ts';
+import { check, renderPdf as render } from './browser.ts';
 import type { Diagnostic } from './diagnostics.ts';
+import { findFonts, type FontOptions } from './fonts.ts';
 import type { DiagramLayout } from './layout.ts';
-import { analyze, type Model } from './model.ts';
-import { parse } from './parser.ts';
-import { renderPdf, type PdfOptions } from './pdf.ts';
+import type { Model } from './model.ts';
+import type { RenderOptions } from './pdf.ts';
 
-export type { ActivityDecl, DocumentAst, IcomDecl, MetaDecl, Role } from './ast.ts';
-export { activity, model, toSource, tunnel, type Arrow, type Icoms, type Settings, type TunneledArrow } from './builder.ts';
-export { formatDiagnostic, Idef0Error, type Diagnostic, type Span } from './diagnostics.ts';
-export { DEFAULT_STYLE, layoutDiagram, layoutModel, type DiagramLayout, type LayoutOptions, type LayoutStyle, type ModelLayoutOptions } from './layout.ts';
-export { analyze, type Activity, type ArrowSpec, type DiagramSpec, type Model } from './model.ts';
-export { parse } from './parser.ts';
-export { PAGE_POINTS, renderPdf, type PdfOptions } from './pdf.ts';
+export * from './browser.ts';
+export { findFonts, type FontOptions } from './fonts.ts';
 
-export interface CompileResult {
+export interface PdfOptions extends Omit<RenderOptions, 'fonts'>, FontOptions {}
+
+export interface PdfResult {
   pdf: Buffer;
-  model: Model;
   layouts: DiagramLayout[];
+}
+
+export interface CompileResult extends PdfResult {
+  model: Model;
   warnings: Diagnostic[];
+}
+
+/**
+ * Lays out every diagram of the model and renders them as pages of one PDF. Text that the
+ * built-in Helvetica cannot show gets a Unicode font found on the system.
+ */
+export async function renderPdf(model: Model, options: PdfOptions = {}): Promise<PdfResult> {
+  const { pdf, layouts } = await render(model, { page: options.page, style: options.style, fonts: findFonts(model, options) });
+  return { pdf: Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength), layouts };
 }
 
 /**
@@ -25,13 +39,7 @@ export interface CompileResult {
  * per diagram. Throws {@link Idef0Error} if the source is invalid.
  */
 export async function compile(source: string | DocumentAst, options: PdfOptions = {}): Promise<CompileResult> {
-  const ast = typeof source === 'string' ? parse(source) : source;
-  const { model, warnings } = analyze(ast);
+  const { model, warnings } = check(source);
   const { pdf, layouts } = await renderPdf(model, options);
   return { pdf, model, layouts, warnings };
-}
-
-/** Parses and checks a model without rendering it. Throws {@link Idef0Error} if it is invalid. */
-export function check(source: string | DocumentAst): { model: Model; warnings: Diagnostic[] } {
-  return analyze(typeof source === 'string' ? parse(source) : source);
 }
