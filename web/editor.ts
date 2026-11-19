@@ -10,6 +10,8 @@ import { ACTIVITY_KEYWORDS, META_KEYS, ROLE_KEYWORDS } from '../src/parser.ts';
 
 export interface Editor {
   text(): string;
+  /** Replaces the whole text with one change, which can be undone, and goes to the start. */
+  replace(text: string): void;
   /** Selects a span of the source, scrolls to it and focuses the editor. */
   select(span: Span): void;
   /** Underlines the problems in the source and marks their lines. */
@@ -42,6 +44,10 @@ export function createEditor(parent: HTMLElement, doc: string, onChange: (text: 
 
   return {
     text: () => view.state.doc.toString(),
+    replace(text) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: 0 }, scrollIntoView: true });
+      view.focus();
+    },
     select(span) {
       const length = view.state.doc.length;
       const from = Math.min(span.offset, length);

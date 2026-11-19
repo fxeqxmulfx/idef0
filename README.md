@@ -204,6 +204,11 @@ with a **Download PDF** button. The source has syntax highlighting, and problems
 in it and listed under it; click one in the list to jump to it. While the source has errors,
 the last good PDF stays on screen, dimmed. The source is kept in the browser between visits.
 
+**Open** and **Save** (Ctrl+O and Ctrl+S, or ⌘O and ⌘S on a Mac) read and write `.idef0` files.
+In Chrome and Edge, Save writes back to the file you opened, and Shift+Ctrl+S saves to a new
+file. Other browsers can't write to your files, so Save downloads the source instead. Opening a
+file can be undone with Ctrl+Z.
+
 For text that Helvetica cannot show (Cyrillic, Greek, …) the editor uses DejaVu Sans, which it
 loads the first time a model needs it. The `font` setting only works on the command line.
 

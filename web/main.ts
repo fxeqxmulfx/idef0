@@ -1,6 +1,7 @@
 /**
  * The editor page: model source on the left, the compiled PDF on the right. Everything runs
- * in the browser; the PDF is recompiled shortly after each change.
+ * in the browser; the PDF is recompiled shortly after each change. The source can be opened
+ * from and saved to .idef0 files.
  */
 import boldFontUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf?url';
 import regularFontUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
@@ -9,7 +10,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import example from '../examples/workshop.idef0?raw';
 import { analyze, Idef0Error, needsUnicodeFont, parse, renderPdf, type Diagnostic, type FontFiles, type Model } from '../src/browser.ts';
 import { createEditor } from './editor.ts';
-import { downloadFile } from './files.ts';
+import { downloadFile, openFile, saveFile, type ModelFile } from './files.ts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -21,9 +22,14 @@ const problems = element<HTMLUListElement>('#problems');
 const preview = element<HTMLElement>('#preview');
 const status = element<HTMLElement>('#status');
 const download = element<HTMLButtonElement>('#download');
+const fileLabel = element<HTMLElement>('#file-name');
+const openButton = element<HTMLButtonElement>('#open');
+const saveButton = element<HTMLButtonElement>('#save');
 
-/** The last PDF compiled without errors. */
-let current: { bytes: Uint8Array<ArrayBuffer>; name: string } | undefined;
+/** The last PDF compiled without errors, and its model. */
+let current: { bytes: Uint8Array<ArrayBuffer>; model: Model } | undefined;
+/** The file the source was opened from or last saved to, and the text it got. */
+let file: (ModelFile & { saved: string }) | undefined;
 /** DejaVu Sans, fetched the first time a model has text that Helvetica cannot show. */
 let unicodeFonts: Promise<FontFiles> | undefined;
 let unicodeFontsLoaded = false;
@@ -33,10 +39,30 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 
 const editor = createEditor(element('#editor'), restore() ?? example, (text) => {
   store(text);
+  showFile(text);
   clearTimeout(timer);
   timer = setTimeout(update, DEBOUNCE);
 });
-download.addEventListener('click', save);
+download.addEventListener('click', downloadPdf);
+openButton.addEventListener('click', () => void open());
+saveButton.addEventListener('click', (e) => void save(e.shiftKey));
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    // In layouts without Latin letters, such as Russian, the letter is the key's place on a US keyboard.
+    const key = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : e.code.replace(/^Key/, '').toLowerCase();
+    if (key !== 'o' && key !== 's') return;
+    e.preventDefault(); // the browser's own Open and Save Page
+    if (e.repeat) return;
+    if (key === 'o') void open();
+    else void save(e.shiftKey);
+  },
+  { capture: true },
+);
+const mod = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+';
+openButton.title = `Open a .idef0 file (${mod}O)`;
+saveButton.title = `Save the model to a .idef0 file (${mod}S; Shift+${mod}S to save as a new file)`;
 element('#show-skill').addEventListener('click', async () => {
   const { showSkill } = await import('./skill.ts');
   showSkill(element<HTMLDialogElement>('#skill'));
@@ -65,7 +91,7 @@ async function update(): Promise<void> {
     if (run !== compiles) return;
     const { pdf } = await renderPdf(model, { fonts });
     if (run !== compiles) return;
-    current = { bytes: pdf, name: fileName(model) };
+    current = { bytes: pdf, model };
     download.disabled = false;
     download.title = '';
     report(warnings, `${count(model.diagrams.length, 'diagram')}`);
@@ -168,13 +194,60 @@ async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-function save(): void {
-  if (current) downloadFile(current.bytes, current.name, 'application/pdf');
+function downloadPdf(): void {
+  if (current) downloadFile(current.bytes, `${baseName()}.pdf`, 'application/pdf');
 }
 
-function fileName(model: Model): string {
-  const title = (model.meta.title ?? model.top.name).replace(/\s+/g, ' ').replace(/[\\/:*?"<>|]/g, '').trim();
-  return `${title || 'model'}.pdf`;
+/** Replaces the source with a file's; the replacement can be undone. */
+async function open(): Promise<void> {
+  try {
+    const opened = await openFile();
+    if (!opened) return;
+    editor.replace(opened.text);
+    file = { name: opened.name, handle: opened.handle, saved: editor.text() };
+    showFile(file.saved);
+  } catch (e) {
+    fileProblem('open', e);
+  }
+}
+
+/** Saves the source to its file, or asks where to save it the first time and when `asNew`. */
+async function save(asNew = false): Promise<void> {
+  const text = editor.text();
+  try {
+    const saved = await saveFile(text, { name: `${baseName()}.idef0`, handle: asNew ? undefined : file?.handle });
+    if (!saved) return;
+    file = { ...saved, saved: text };
+    showFile(editor.text());
+  } catch (e) {
+    fileProblem('save', e);
+  }
+}
+
+/** Shows the file's name, marked while the source has changes that are not saved. */
+function showFile(text: string): void {
+  const edited = file !== undefined && text !== file.saved;
+  fileLabel.hidden = !file;
+  fileLabel.replaceChildren(file?.name ?? '');
+  if (edited) {
+    const mark = span('edited', '•');
+    mark.title = 'Unsaved changes';
+    mark.setAttribute('aria-hidden', 'true');
+    fileLabel.append(mark, span('visually-hidden', '(unsaved changes)'));
+  }
+  document.title = file ? `${edited ? '• ' : ''}${file.name} – IDEF0 Editor` : 'IDEF0 Editor';
+}
+
+function fileProblem(action: 'open' | 'save', e: unknown): void {
+  status.textContent = `Could not ${action} the file: ${e instanceof Error ? e.message : String(e)}`;
+  status.classList.add('error');
+}
+
+/** The name for files made from the source: its file's name, or else the model's title. */
+function baseName(): string {
+  if (file) return file.name.replace(/\.[^.]*$/, '') || 'model';
+  const title = current ? (current.model.meta.title ?? current.model.top.name) : '';
+  return title.replace(/\s+/g, ' ').replace(/[\\/:*?"<>|]/g, '').trim() || 'model';
 }
 
 function count(n: number, noun: string): string {

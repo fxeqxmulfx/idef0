@@ -10,8 +10,13 @@
   <body>
     <header>
       <h1>IDEF0 Editor</h1>
-      <span id="status" role="status"></span>
       <div class="actions">
+        <button id="open" type="button" class="secondary" aria-keyshortcuts="Control+O Meta+O">Open</button>
+        <button id="save" type="button" class="secondary" aria-keyshortcuts="Control+S Meta+S">Save</button>
+      </div>
+      <span id="file-name" hidden></span>
+      <span id="status" role="status"></span>
+      <div class="actions end">
         <button id="show-skill" type="button" class="secondary" aria-haspopup="dialog">Skill</button>
         <button id="download" type="button" disabled>Download PDF</button>
       </div>
