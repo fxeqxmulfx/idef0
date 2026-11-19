@@ -61,8 +61,9 @@ body {
 
 header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 8px 16px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
 }
@@ -87,13 +88,32 @@ button {
   cursor: pointer;
 }
 
-#download {
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+#download,
+button.secondary {
   padding: 6px 14px;
   border: 1px solid transparent;
   border-radius: 6px;
+}
+
+#download {
   background: var(--accent);
   color: var(--accent-fg);
   font-weight: 600;
+}
+
+button.secondary {
+  border-color: var(--border);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+button.secondary:hover {
+  background: var(--hover);
 }
 
 #download:disabled {
@@ -190,6 +210,149 @@ main {
   margin: 0 0 12px;
   color: var(--muted);
   text-align: center;
+}
+
+#skill {
+  width: min(760px, calc(100vw - 32px));
+  height: min(880px, calc(100vh - 32px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+#skill[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#skill::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#skill .bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+#skill .bar h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+}
+
+#skill .close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+#skill .close:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.skill-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 24px 24px;
+}
+
+.prose {
+  line-height: 1.55;
+}
+
+.prose h1 {
+  margin: 16px 0 12px;
+  font-size: 22px;
+}
+
+.prose h2 {
+  margin: 28px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 17px;
+}
+
+.prose p,
+.prose ul,
+.prose ol,
+.prose pre,
+.prose table {
+  margin: 0 0 12px;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 24px;
+}
+
+.prose li + li {
+  margin-top: 4px;
+}
+
+.prose code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+.prose pre {
+  padding: 12px 16px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--panel);
+  line-height: 1.45;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Wide tables scroll sideways instead of widening the dialog. */
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+
+.prose th,
+.prose td {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.prose .note {
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--panel);
 }
 
 @media (max-width: 760px) {

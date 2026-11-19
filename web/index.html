@@ -11,7 +11,10 @@
     <header>
       <h1>IDEF0 Editor</h1>
       <span id="status" role="status"></span>
-      <button id="download" type="button" disabled>Download PDF</button>
+      <div class="actions">
+        <button id="show-skill" type="button" class="secondary" aria-haspopup="dialog">Skill</button>
+        <button id="download" type="button" disabled>Download PDF</button>
+      </div>
     </header>
     <main>
       <section class="source">
@@ -20,6 +23,20 @@
       </section>
       <section id="preview" aria-label="PDF preview"></section>
     </main>
+    <dialog id="skill" aria-labelledby="skill-title">
+      <div class="bar">
+        <h2 id="skill-title">Skill</h2>
+        <button type="button" class="secondary" data-action="copy">Copy</button>
+        <button type="button" class="secondary" data-action="download">Download SKILL.md</button>
+        <button type="button" class="close" data-action="close" aria-label="Close">×</button>
+      </div>
+      <div class="skill-body prose">
+        <p class="note">
+          This guide is also a skill for AI assistants: paste it into a chat, or save it as
+          <code>~/.claude/skills/idef0/SKILL.md</code> for Claude Code.
+        </p>
+      </div>
+    </dialog>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

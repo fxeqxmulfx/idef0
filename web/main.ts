@@ -9,6 +9,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import example from '../examples/workshop.idef0?raw';
 import { analyze, Idef0Error, needsUnicodeFont, parse, renderPdf, type Diagnostic, type FontFiles, type Model } from '../src/browser.ts';
 import { createEditor } from './editor.ts';
+import { downloadFile } from './files.ts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -36,6 +37,10 @@ const editor = createEditor(element('#editor'), restore() ?? example, (text) => 
   timer = setTimeout(update, DEBOUNCE);
 });
 download.addEventListener('click', save);
+element('#show-skill').addEventListener('click', async () => {
+  const { showSkill } = await import('./skill.ts');
+  showSkill(element<HTMLDialogElement>('#skill'));
+});
 new ResizeObserver(whenWidthChanges(preview, () => current && void show(current.bytes))).observe(preview);
 void update();
 
@@ -164,15 +169,7 @@ async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
 }
 
 function save(): void {
-  if (!current) return;
-  const url = URL.createObjectURL(new Blob([current.bytes], { type: 'application/pdf' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = current.name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  if (current) downloadFile(current.bytes, current.name, 'application/pdf');
 }
 
 function fileName(model: Model): string {

@@ -207,6 +207,11 @@ the last good PDF stays on screen, dimmed. The source is kept in the browser bet
 For text that Helvetica cannot show (Cyrillic, Greek, …) the editor uses DejaVu Sans, which it
 loads the first time a model needs it. The `font` setting only works on the command line.
 
+The **Skill** button shows a short guide to writing IDEF0 models in this language,
+[skill/SKILL.md](skill/SKILL.md). The same file is an Agent Skill for AI assistants: paste it
+into a chat, or save it as `~/.claude/skills/idef0/SKILL.md` and Claude Code will use it when you
+ask for an IDEF0 model.
+
 Everything runs in the browser, so `npm run web:build` makes a static site in `web/dist/` that
 any static host can serve. `npm run web:preview` serves that build locally.
 
@@ -284,7 +289,8 @@ The sources are in `src/`:
 | `index.ts`       | the library entry point for Node                                |
 | `cli.ts`         | the command                                                     |
 
-The web editor is in `web/`.
+The web editor is in `web/`. The skill is `skill/SKILL.md`; a test compiles its examples, so
+keep them valid when the language changes.
 
 ## License
 
