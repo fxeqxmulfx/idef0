@@ -1,0 +1,67 @@
+# A small furniture workshop, modelled in IDEF0.
+# Compile with:  idef0 examples/workshop.idef0   (or: node src/cli.ts examples/workshop.idef0)
+
+title     "Custom Furniture Workshop"
+author    "M. Petrov"
+project   "Workshop process model"
+date      "2026-11-18"
+rev       "1"
+status    draft
+purpose   "Show how a customer order becomes delivered furniture, to find where rework and delays come from."
+viewpoint "Workshop manager"
+
+activity "Make Custom Furniture" {
+  input     "Customer Order", "Raw Timber"
+  control   "Building Codes", "Budget"
+  output    "Delivered Furniture", "Invoice", "Offcuts"
+  mechanism "Carpenters", "Workshop Tools"
+
+  activity "Design Piece" {
+    input     "Customer Order"
+    control   "Building Codes", "Change Request"
+    output    "Drawings", "Cut List"
+    mechanism "Carpenters"
+  }
+
+  activity "Prepare Materials" {
+    input     "Raw Timber"
+    control   "Cut List", "Budget"
+    output    "Cut Parts", "Offcuts"
+    mechanism "Workshop Tools"
+  }
+
+  activity "Assemble and Finish" {
+    input     "Cut Parts"
+    control   "Drawings"
+    output    "Finished Piece", "Change Request"
+    mechanism "Carpenters", "Workshop Tools"
+
+    activity "Assemble Frame" {
+      input     "Cut Parts"
+      control   "Drawings", "Rework Notes"
+      output    "Frame"
+      mechanism "Carpenters", "Workshop Tools"
+    }
+
+    activity "Sand and Finish" {
+      input     "Frame"
+      control   "Drawings", ("Finish Spec")   // tunneled: comes from outside A3's parent
+      output    "Finished Frame"
+      mechanism "Carpenters", ("Spray Booth")
+    }
+
+    activity "Inspect" {
+      input     "Finished Frame"
+      control   "Drawings"
+      output    "Finished Piece", "Rework Notes", "Change Request"
+      mechanism "Carpenters"
+    }
+  }
+
+  activity "Deliver and Bill" {
+    input     "Finished Piece"
+    control   "Customer Order"
+    output    "Delivered Furniture", "Invoice"
+    mechanism "Carpenters"
+  }
+}
