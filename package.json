@@ -2,6 +2,11 @@
   "name": "idef0-dsl",
   "version": "0.1.0",
   "description": "A text DSL for IDEF0 function models, compiled to PDF",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fxeqxmulfx/idef0.git"
+  },
+  "bugs": "https://github.com/fxeqxmulfx/idef0/issues",
   "type": "module",
   "bin": {
     "idef0": "dist/cli.js"

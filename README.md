@@ -35,10 +35,12 @@ made from it, [examples/workshop.pdf](examples/workshop.pdf).
 
 ## Install
 
-You need Node.js 22.18 or later. The package is not published to npm; set it up from this
-folder:
+You need Node.js 22.18 or later. The package is not published to npm; get it from GitHub
+and set it up in its folder:
 
 ```sh
+git clone https://github.com/fxeqxmulfx/idef0.git
+cd idef0
 npm install
 npm run build     # compiles src/ to dist/
 npm link          # optional: puts the idef0 command on your PATH
