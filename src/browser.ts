@@ -26,7 +26,7 @@ export { parse } from './parser.ts';
 export { needsUnicodeFont, PAGE_POINTS, renderPdf, type FontFiles, type FontSource, type RenderOptions, type RenderResult } from './pdf.ts';
 
 export interface CompileResult {
-  pdf: Uint8Array;
+  pdf: Uint8Array<ArrayBuffer>;
   model: Model;
   layouts: DiagramLayout[];
   warnings: Diagnostic[];

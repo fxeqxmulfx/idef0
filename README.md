@@ -193,6 +193,19 @@ Warnings point out things IDEF0 discourages but that still compile, such as an a
 a control or a decomposition with fewer than 3 boxes. The exit code is 0 on success (warnings
 included), 1 when the model has errors or a file cannot be read or written, and 2 for wrong usage.
 
+## Web editor
+
+```sh
+npm run web            # opens the editor at http://localhost:5173
+```
+
+The editor shows the model source on the left and the PDF on the right, redrawn as you type,
+with a **Download PDF** button. Problems are listed under the source; click one to jump to it.
+While the source has errors, the last good PDF stays on screen, dimmed.
+
+Everything runs in the browser, so `npm run web:build` makes a static site in `web/dist/` that
+any static host can serve. `npm run web:preview` serves that build locally.
+
 ## TypeScript API
 
 ```ts
@@ -262,7 +275,12 @@ The sources are in `src/`:
 | `strokes.ts`     | splitting shared fork and join lines                            |
 | `pdf.ts`         | the IDEF0 form and drawing                                      |
 | `builder.ts`     | the TypeScript builder and `toSource`                           |
+| `browser.ts`     | the library entry point without Node                            |
+| `fonts.ts`       | finding fonts on disk (Node)                                    |
+| `index.ts`       | the library entry point for Node                                |
 | `cli.ts`         | the command                                                     |
+
+The web editor is in `web/`.
 
 ## License
 

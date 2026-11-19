@@ -26,7 +26,7 @@ export interface RenderOptions {
 }
 
 export interface RenderResult {
-  pdf: Uint8Array;
+  pdf: Uint8Array<ArrayBuffer>;
   layouts: DiagramLayout[];
 }
 
@@ -74,7 +74,7 @@ interface Fonts {
   bold: string;
 }
 
-function concat(chunks: readonly Uint8Array[]): Uint8Array {
+function concat(chunks: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
   let at = 0;
   for (const c of chunks) {
@@ -137,7 +137,7 @@ export async function renderPdf(model: Model, options: RenderOptions = {}): Prom
   const doc = new PDFDocument({ autoFirstPage: false, size: [form.width, form.height], margin: 0, info });
   const chunks: Uint8Array[] = [];
   doc.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-  const finished = new Promise<Uint8Array>((resolve, reject) => {
+  const finished = new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
     doc.on('end', () => resolve(concat(chunks)));
     doc.on('error', reject);
   });
